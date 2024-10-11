@@ -15,7 +15,9 @@ class DefaultPacker implements Contracts\Packer
     public const MESSAGE_START_BYTE = 0x02;
 
     protected int $incomingMessageLength = 0;
+
     protected int $decodedMessageLength = 0;
+
     protected string $decodedContentBuffer = '';
 
     public function __construct(protected int $bufferSize)

@@ -18,18 +18,22 @@ class PersistenceWorkersPool
 {
     protected int $sleepTimeout = 1_000;
 
-    /**
-     * @var array<PersistenceWorker>
-     */
-    protected array $inProcess = [];
     protected array $workersOutput = [];
 
     /**
      * @var array<PersistenceWorker>
      */
+    protected array $inProcess = [];
+
+    /**
+     * @var array<PersistenceWorker>
+     */
     protected array $idle = [];
+
     protected int $workersCount;
+
     protected Packer $packer;
+
     protected Serializer $serializer;
 
     public function __construct(int $workersCount)
@@ -40,27 +44,6 @@ class PersistenceWorkersPool
     public static function create(int $workersCount): static
     {
         return new static($workersCount);
-    }
-
-    protected function checkIfAnyWorkerCompleteTask(): void
-    {
-        foreach ($this->inProcess as $worker) {
-            $output = $worker->getOutput();
-
-            if ($output === Channel::NO_CONTENT) {
-                continue;
-            }
-            $this->idle[] = $worker;
-            $this->workersOutput[] = $output;
-            $this->inProcess = array_filter($this->inProcess, fn (PersistenceWorker $workerInProcess) => $workerInProcess !== $worker);
-        }
-    }
-
-    protected function sleep(): void
-    {
-        if ($this->sleepTimeout > 0) {
-            usleep($this->sleepTimeout);
-        }
     }
 
     /**
@@ -98,7 +81,7 @@ class PersistenceWorkersPool
     public function dispatch(mixed $content, int $waitAvailableWorkerTimeout = 1_000): static
     {
         $startWaitTime = microtime(true);
-        do {
+        while (true) {
             if ($waitAvailableWorkerTimeout > 0 && ((microtime(true) - $startWaitTime) > $waitAvailableWorkerTimeout)) {
                 throw new DispatchTimeoutException($waitAvailableWorkerTimeout);
             }
@@ -111,7 +94,7 @@ class PersistenceWorkersPool
             }
 
             $this->sleep();
-        } while (true);
+        }
 
         $this->inProcess[] = $worker->dispatch($content);
 
@@ -173,13 +156,13 @@ class PersistenceWorkersPool
 
     public function wait(): void
     {
-        do {
+        while (true) {
             if ($this->hasWorkerInProcess()) {
                 $this->sleep();
             } else {
                 break;
             }
-        } while (true);
+        }
     }
 
     public function setPacker(Packer $packer): static
@@ -198,5 +181,26 @@ class PersistenceWorkersPool
     {
         $this->sleepTimeout = $sleepTimeout;
         return $this;
+    }
+
+    protected function checkIfAnyWorkerCompleteTask(): void
+    {
+        foreach ($this->inProcess as $worker) {
+            $output = $worker->getOutput();
+
+            if ($output === Channel::NO_CONTENT) {
+                continue;
+            }
+            $this->idle[] = $worker;
+            $this->workersOutput[] = $output;
+            $this->inProcess = array_filter($this->inProcess, fn (PersistenceWorker $workerInProcess) => $workerInProcess !== $worker);
+        }
+    }
+
+    protected function sleep(): void
+    {
+        if ($this->sleepTimeout > 0) {
+            usleep($this->sleepTimeout);
+        }
     }
 }

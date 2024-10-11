@@ -19,63 +19,20 @@ use Socket;
 abstract class Worker
 {
     protected WorkerStatus $status = WorkerStatus::Idle;
+
     protected int $pid;
+
     protected bool $isChildProcess;
+
     protected Channel $channel;
+
     protected int $timeout = 0;
+
     protected Packer $packer;
+
     protected Serializer $serializer;
+
     protected int $channelBufferSize = 1024;
-
-    abstract protected function process(): void;
-
-    protected function listenForSignals(): void
-    {
-        pcntl_async_signals(true);
-
-        if ($this->timeout > 0) {
-            pcntl_alarm($this->timeout);
-        }
-
-        pcntl_signal(SIGQUIT, fn () => $this->kill());
-        pcntl_signal(SIGTERM, fn () => $this->kill());
-        pcntl_signal(SIGINT, fn () => $this->kill());
-        pcntl_signal(SIGALRM, function () {
-            $this->channel->send(
-                new WorkerExceptionMessage(new WorkerTimeoutException($this->timeout))
-            );
-            $this->kill();
-        });
-    }
-
-    protected function createCommunicationSockets(): array
-    {
-        socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $sockets);
-        return $sockets;
-    }
-
-    protected function checkWorkerStatus(): void
-    {
-        if ($this->status === WorkerStatus::Killed) {
-            return;
-        }
-
-        $status = pcntl_waitpid($this->pid, $status, WNOHANG | WUNTRACED);
-
-        if ($status === $this->pid) {
-            $this->status = WorkerStatus::Killed;
-        }
-    }
-
-    protected function createChannel(Socket $socket): Channel
-    {
-        return new Channel(
-            socket: $socket,
-            bufferSize: $this->channelBufferSize,
-            serializer: $this->serializer ?? new NativeSerializer(),
-            packer: $this->packer ?? new DefaultPacker($this->channelBufferSize)
-        );
-    }
 
     public function run(): static
     {
@@ -166,5 +123,55 @@ abstract class Worker
     {
         $this->channelBufferSize = $channelBufferSize;
         return $this;
+    }
+
+    abstract protected function process(): void;
+
+    protected function listenForSignals(): void
+    {
+        pcntl_async_signals(true);
+
+        if ($this->timeout > 0) {
+            pcntl_alarm($this->timeout);
+        }
+
+        pcntl_signal(SIGQUIT, fn () => $this->kill());
+        pcntl_signal(SIGTERM, fn () => $this->kill());
+        pcntl_signal(SIGINT, fn () => $this->kill());
+        pcntl_signal(SIGALRM, function () {
+            $this->channel->send(
+                new WorkerExceptionMessage(new WorkerTimeoutException($this->timeout))
+            );
+            $this->kill();
+        });
+    }
+
+    protected function createCommunicationSockets(): array
+    {
+        socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $sockets);
+        return $sockets;
+    }
+
+    protected function checkWorkerStatus(): void
+    {
+        if ($this->status === WorkerStatus::Killed) {
+            return;
+        }
+
+        $status = pcntl_waitpid($this->pid, $status, WNOHANG | WUNTRACED);
+
+        if ($status === $this->pid) {
+            $this->status = WorkerStatus::Killed;
+        }
+    }
+
+    protected function createChannel(Socket $socket): Channel
+    {
+        return new Channel(
+            socket: $socket,
+            bufferSize: $this->channelBufferSize,
+            serializer: $this->serializer ?? new NativeSerializer(),
+            packer: $this->packer ?? new DefaultPacker($this->channelBufferSize)
+        );
     }
 }
