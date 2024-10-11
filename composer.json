@@ -1,0 +1,41 @@
+{
+  "name": "n-hor/fork",
+  "version": "0.1",
+  "description": "Execute PHP code in parallel with single or persistent task worker.",
+  "keywords": [
+    "fork",
+    "parallel",
+    "concurrency"
+  ],
+  "require": {
+    "php": "^8.1",
+    "ext-pcntl": "*",
+    "ext-sockets": "*"
+  },
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Nikolay Horobets",
+      "email": "nikolay.strafe@gmail.com",
+      "role": "Developer"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "NHor\\PcntlParallel\\": "src"
+    }
+  },
+  "scripts": {
+    "test-coverage": "vendor/bin/pest --coverage-html coverage",
+    "format": "vendor/bin/php-cs-fixer fix --allow-risky=yes --config=.php-cs-fixer.php"
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.64",
+    "pestphp/pest": "^3.2"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  }
+}
