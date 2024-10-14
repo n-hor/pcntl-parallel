@@ -20,6 +20,8 @@ composer require n-hor/pcntl-parallel
 
 ## Usage
 
+### SingleTaskWorker
+
 Usage of `SingleTaskWorker`:
 
 ```php
@@ -36,8 +38,8 @@ $worker2 =  (new SingleTaskWorker())
 // do something immediately
 //...your code...
 // or you can wait for the result of each worker
- $resultWorker1 = $worker1->waitOutput(),
- $resultWorker2 = $worker2->waitOutput(),
+$resultWorker1 = $worker1->waitOutput(),
+$resultWorker2 = $worker2->waitOutput(),
 ```
 
 If an exception occurs in a parallel process, Worker returns `WorkerExceptionMessage` as output.
@@ -186,6 +188,7 @@ $result[] = $worker->waitOutput(waitTimeout: 2_000); //job2 result
 //kill worker
 $worker->kill();
 ```
+### PersistenceWorkersPool
 
 `PersistenceWorkersPool` A pool of processes for sending tasks.
 A free worker will be selected to perform the task.
@@ -238,3 +241,7 @@ composer test
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+
+## PHP sandbox:
+
+<a href="https://sandbox.ws">https://sandbox.ws</a>
