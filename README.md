@@ -1,6 +1,7 @@
 # Simple solution for running PHP code concurrently
 
-This package for running code in parallel and creating a pool of processes to execute various tasks (like queue workers).
+This package for running code in parallel and creating a pool of processes to execute various tasks (like queue
+workers).
 
 Improve performance of your php app with this package!
 
@@ -11,10 +12,11 @@ composer require n-hor/pcntl-parallel
 ```
 
 ## Requirements
- - PHP >= 8.1
- - ext-sockets
- - ext-pcntl https://www.php.net/manual/en/intro.pcntl.php
- - posix (optional)
+
+- PHP >= 8.1
+- ext-sockets
+- ext-pcntl https://www.php.net/manual/en/intro.pcntl.php
+- posix (optional)
 
 ## Usage
 
@@ -23,8 +25,14 @@ Usage of `SingleTaskWorker`:
 ```php
 use NHor\PcntlParallel\SingleTaskWorker;
 
-$worker1 = (new SingleTaskWorker())->setCallback(fn () => DB::insert(...))->run();
-$worker2 =  (new SingleTaskWorker())->setCallback(fn () => DB::update(...))->run();
+$worker1 = (new SingleTaskWorker())
+        ->setCallback(fn () => DB::insert(...))
+        ->run();
+        
+$worker2 =  (new SingleTaskWorker())
+        ->setCallback(fn () => DB::update(...))
+        ->run();
+        
 // do something immediately
 //...your code...
 // or you can wait for the result of each worker
@@ -45,7 +53,8 @@ $worker = (new SingleTaskWorker())
             ->setCallback(fn () => YourLongTimeJob::run(...))
             ->run();
 
-$result = $worker->waitOutput()
+$result = $worker->waitOutput();
+
 if($result instanceof WorkerExceptionMessage) {
   //check and handle errors from worker
 }
@@ -81,8 +90,10 @@ $parallelTasks = ParallelTasks::add([
           Redis::reconnect();
     })
     ->run();
+    
 // do something immediately
 //...your code...
+
 //You can wait for all tasks to complete and specify a sleep timeout in microseconds while waiting for output.
 $result = $parallelTasks->waitOutput(sleepTimeout: 100, waitTimeout: 1_000_000);
 
@@ -103,18 +114,21 @@ $parallelTasks = ParallelTasks::add([
     ])
     ->run();
 
-[$task1Worker, $task2Worker, $task3Worker] = $parallelTasks->getTaskWorkers();
-$result = $task2Worker->waitOutput(); //task2
+//get tasks workers
+[$task1, $task2, $task3] = $parallelTasks->getTaskWorkers();
+
+$result = $task2->waitOutput(); //task2
 
 //Or you can just check if there is a result without blocking the program
-$worker1Output = $task1Worker->getOutput();
+$task1Output = $task1->getOutput();
 
-if ($worker1Output !== Channel::NO_CONTENT) {
+if ($task1Output !== Channel::NO_CONTENT) {
     //task done
 }
 ```
 
 Example of running with concurrency limitation:
+
 ```php
 use NHor\PcntlParallel\ParallelTasks;
 use NHor\PcntlParallel\Messages\WorkerExceptionMessage;
@@ -137,6 +151,7 @@ $result = ParallelTasks::add([
 //WorkerExceptionMessage since third task is sleep 2 seconds but timeout is 1 second.
 $result[2] instanceof WorkerExceptionMessage; //true
 ```
+
 `PersistenceWorker` is a worker that is started once and runs in the background as a daemon.
 It receives and executes tasks from the parent process.
 
@@ -151,12 +166,19 @@ $worker = (new PersistenceWorker())
        })
        ->run();
 
-$jobs = [new Job($data), new Job($data), new Job($data)];
+$jobs = [
+         new Job($data),
+         new Job($data),
+         new Job($data)
+      ];
+        
 foreach ($jobs as $job) {
     $worker->dispatch($job);
 }
+
 // do something immediately
 //...your code...
+
 // or you can wait for the result of each job
 $result[] = $worker->waitOutput(waitTimeout: 2_000); //job1 result
 $result[] = $worker->waitOutput(waitTimeout: 2_000); //job2 result
@@ -166,7 +188,7 @@ $worker->kill();
 ```
 
 `PersistenceWorkersPool` A pool of processes for sending tasks.
-A free worker will be selected to perform the task. 
+A free worker will be selected to perform the task.
 If all workers are busy, it will wait until at least one is free.
 You can specify a maximum wait time, in which case an exception will be thrown.
 
@@ -188,6 +210,7 @@ $pool = PersistenceWorkersPool::create(5)
     });
 
 $tasks = [1,2,3,4,5,6,7,8,9];
+
 foreach ($tasks as $task) {
     //1,2,3,4,5 - will be sent immediately, but the next tasks will wait until some worker completes the task.
     $pool->dispatch($task, waitAvailableWorkerTimeout: 2_000_000); //if the wait is more than 2 seconds, an exception will be thrown
@@ -195,7 +218,10 @@ foreach ($tasks as $task) {
 
 //retrieve the result available at the moment
 $result = $pool->pullWorkersOutput(); //[1,2,3,4,5]
+
+//wait next results
 $pool->wait();
+
 $result = $pool->pullWorkersOutput(); //[6,7,8,9]
 ```
 
