@@ -10,8 +10,8 @@ namespace NHor\PcntlParallel;
 use Closure;
 use NHor\PcntlParallel\Contracts\Packer;
 use NHor\PcntlParallel\Contracts\Serializer;
-use NHor\PcntlParallel\Exceptions\DispatchTimeoutException;
 use NHor\PcntlParallel\Exceptions\PoolAlreadyCreatedException;
+use NHor\PcntlParallel\Exceptions\TimeoutException;
 use NHor\PcntlParallel\Exceptions\WorkerException;
 
 class PersistenceWorkersPool
@@ -36,6 +36,8 @@ class PersistenceWorkersPool
 
     protected Serializer $serializer;
 
+    protected ?Closure $commonBeforeExecutionCallback = null;
+
     public function __construct(int $workersCount)
     {
         $this->workersCount = $workersCount;
@@ -59,6 +61,7 @@ class PersistenceWorkersPool
         for ($workerNum = 0; $workerNum < $this->workersCount; ++$workerNum) {
             $worker = (new PersistenceWorker())
                 ->setSleepTimeout($this->sleepTimeout)
+                ->setBeforeExecutionCallback($this->commonBeforeExecutionCallback)
                 ->setOnReceiveCallback($onReceiveCallback);
 
             if (isset($this->packer)) {
@@ -76,14 +79,16 @@ class PersistenceWorkersPool
     }
 
     /**
-     * @throws DispatchTimeoutException
+     * @throws TimeoutException|WorkerException
      */
-    public function dispatch(mixed $content, int $waitAvailableWorkerTimeout = 1_000): static
+    public function dispatch(mixed $content, int $waitAvailableWorkerTimeout = 1_000_000): static
     {
         $startWaitTime = microtime(true);
+        $waitAvailableWorkerTimeout /= 1_000_000;
+
         while (true) {
             if ($waitAvailableWorkerTimeout > 0 && ((microtime(true) - $startWaitTime) > $waitAvailableWorkerTimeout)) {
-                throw new DispatchTimeoutException($waitAvailableWorkerTimeout);
+                throw new TimeoutException($waitAvailableWorkerTimeout);
             }
 
             $hasAvailableWorker = $this->hasAvailableWorker();
@@ -180,6 +185,12 @@ class PersistenceWorkersPool
     public function setSleepTimeout(int $sleepTimeout): static
     {
         $this->sleepTimeout = $sleepTimeout;
+        return $this;
+    }
+
+    public function setCommonBeforeExecutionCallback(?Closure $commonBeforeExecutionCallback): static
+    {
+        $this->commonBeforeExecutionCallback = $commonBeforeExecutionCallback;
         return $this;
     }
 

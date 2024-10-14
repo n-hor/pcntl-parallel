@@ -2,8 +2,23 @@
 
 use NHor\PcntlParallel\Messages\WorkerExceptionMessage;
 use NHor\PcntlParallel\ParallelTasks;
+use NHor\PcntlParallel\PersistenceWorker;
 use NHor\PcntlParallel\PersistenceWorkersPool;
 use NHor\PcntlParallel\SingleTaskWorker;
+
+function generateRandomString($length = 10): string
+{
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $charactersLength = strlen($characters);
+    $randomString = '';
+
+    for ($i = 0; $i < $length; $i++) {
+        $randomString .= $characters[random_int(0, $charactersLength - 1)];
+    }
+
+    return $randomString;
+}
+
 
 test('separate workers parallel execution')->expect(function () {
     $worker1 = (new SingleTaskWorker())->setCallback(fn () => 1)->run();
@@ -66,12 +81,12 @@ test('parallel concurrency timeout exception')->expect(function () {
         fn () => time(),
         function () {
             sleep(2);
-            return time();
+            return 1;
         },
-        fn () => time(),
+        fn () => time()
     ])
         ->setTimeout(1)
-        ->runWithProcessLimitation(2);
+        ->runWithProcessLimitation(2, waitTimeout: 3_000_000);
 
     expect($results[1])
         ->toEqual($results[0])
@@ -79,6 +94,22 @@ test('parallel concurrency timeout exception')->expect(function () {
         ->toBeInstanceOf(WorkerExceptionMessage::class)
         ->and($results[3])
         ->toEqual($results[0]);
+});
+
+test('persistence task worker')->expect(function () {
+    $worker = (new PersistenceWorker())
+        ->setOnReceiveCallback(fn ($data) => $data)
+        ->run();
+
+    $tasks = [1,2,3,4,5];
+    foreach ($tasks as $task) {
+        $worker->dispatch($task);
+    }
+    foreach ($tasks as $task) {
+        $result[] = $worker->waitOutput(waitTimeout: 20000);
+    }
+    $worker->kill();
+    expect(15)->toEqual(array_sum($result));
 });
 
 test('persistence workers pool')->expect(function () {
@@ -90,15 +121,10 @@ test('persistence workers pool')->expect(function () {
 
     $time = time();
 
-    $pool->dispatch(1);
-    $pool->dispatch(2);
-    //1 sec wait
-    $pool->dispatch(3);
-    $pool->dispatch(4);
-    //1 sec wait
-    $pool->dispatch(5);
-
-    //1 sec wait
+    $tasks = [1,2,3,4,5];
+    foreach ($tasks as $task) {
+        $pool->dispatch($task, 2_000_000);
+    }
     $pool->wait();
     $result = $pool->pullWorkersOutput();
 
@@ -108,4 +134,70 @@ test('persistence workers pool')->expect(function () {
         ->toEqual(15);
 
     $pool->destroy();
+});
+
+test('wait specific task')->expect(function () {
+    $parallelTasks = ParallelTasks::add([
+        fn () => 'task1',
+        fn () => 'task2',
+        fn () => 'task3',
+
+    ])->run();
+
+    [, $task2Worker] = $parallelTasks->getTaskWorkers();
+    expect('task2')->toEqual($task2Worker->waitOutput());
+});
+
+test('parallel tasks test buffer size')->expect(function () {
+    $message1 = generateRandomString(1000);
+    $message2 = generateRandomString(2000);
+    $message3 = generateRandomString(3000);
+
+    $parallelTasks = ParallelTasks::add([
+        fn () => $message1,
+        fn () => $message2,
+        fn () => $message3,
+    ])->run();
+
+
+    expect([$message1, $message2, $message3])->toEqual($parallelTasks->waitOutput());
+});
+
+test('persistence workers test buffer size')->expect(function () {
+    //pool with 2 available workers
+    $pool = PersistenceWorkersPool::create(2)->run(function (mixed $job) {
+        return $job;
+    });
+
+    $tasks = [generateRandomString(10000), generateRandomString(20000), generateRandomString(30000)];
+    foreach ($tasks as $task) {
+        $pool->dispatch($task, 4_000_000);
+    }
+    $pool->wait();
+    $result = $pool->pullWorkersOutput();
+
+    expect($tasks)->toEqual($result);
+
+    $pool->destroy();
+});
+
+
+test('test results of workers pool')->expect(function () {
+    //pool with 5 available workers
+    $pool = PersistenceWorkersPool::create(5)->run(function (mixed $job) {
+        sleep(1);
+        return $job;
+    });
+
+    $tasks = [1,2,3,4,5,6,7,8,9];
+    foreach ($tasks as $task) {
+        $pool->dispatch($task, waitAvailableWorkerTimeout: 2_000_000); //if the wait is more than 2 seconds, an exception will be thrown
+    }
+
+    //retrieve the result available at the moment
+    $result = $pool->pullWorkersOutput(); //[1,2,3,4,5]
+    expect(15)->toEqual(array_sum($result));
+    $pool->wait();
+    $result = $pool->pullWorkersOutput(); //[6,7,8,9]
+    expect(30)->toEqual(array_sum($result));
 });

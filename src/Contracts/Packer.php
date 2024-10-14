@@ -11,5 +11,5 @@ interface Packer
 {
     public function pack(string $content): array;
 
-    public function unpack(string $content): ?string;
+    public function unpack(string $content): array;
 }

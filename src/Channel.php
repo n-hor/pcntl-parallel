@@ -16,10 +16,19 @@ class Channel
 {
     public const NO_CONTENT = 0x00;
 
+    public Generator $reader;
+
     protected string $buffer = '';
 
-    public function __construct(protected Socket $socket, protected int $bufferSize, protected Serializer $serializer, protected DefaultPacker $packer)
-    {
+    public function __construct(
+        protected Socket $socket,
+        protected int $bufferSize,
+        protected Serializer $serializer,
+        protected DefaultPacker $packer,
+        protected int $socketSecondsTimeout = 1,
+        protected int $socketMicroSecondsTimeout = 1_000_000,
+    ) {
+        $this->reader = $this->read();
     }
 
     public function __destruct()
@@ -34,17 +43,14 @@ class Channel
         while (true) {
             $output = socket_read($this->socket, $this->bufferSize);
 
-            if ($output === false) {
+            if ($output === false || $output === '') {
                 yield self::NO_CONTENT;
+                continue;
             }
 
-            if ($output === '') {
-                yield '';
-            }
+            $messages = $this->packer->unpack($output);
 
-            $message = $this->packer->unpack($output);
-
-            if ($message !== null) {
+            foreach ($messages as $message) {
                 yield $this->serializer->unserialize($message);
             }
         }
@@ -66,9 +72,38 @@ class Channel
         return $this;
     }
 
-    protected function write(string $data): false|int
+    protected function write(string $data): void
     {
         socket_set_nonblock($this->socket);
-        return socket_write($this->socket, $data, strlen($data));
+
+        while ($data !== '') {
+            if (! $this->socketSelect(false)) {
+                break;
+            }
+
+            $length = strlen($data);
+            $sentBytes = socket_write($this->socket, $data, $length);
+
+            if ($sentBytes === false || $sentBytes === $length) {
+                break;
+            }
+
+            $data = substr($data, $sentBytes);
+        }
+    }
+
+    protected function socketSelect($isRead): bool
+    {
+        $write = ! $isRead ? [$this->socket] : null;
+        $read = $isRead ? [$this->socket] : null;
+        $except = null;
+
+        $selectResult = socket_select($read, $write, $except, $this->socketSecondsTimeout, $this->socketMicroSecondsTimeout);
+
+        if ($selectResult === false || $selectResult <= 0) {
+            return false;
+        }
+
+        return true;
     }
 }

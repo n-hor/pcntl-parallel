@@ -46,18 +46,21 @@ class ParallelTasks
         return $this;
     }
 
-    public function runWithProcessLimitation(int $processesLimit, int $sleepTimeout = 1000): array
+    public function runWithProcessLimitation(int $processesLimit, int $sleepTimeout = 100, int $waitTimeout = 0): array
     {
         $chunks = array_chunk($this->tasks, $processesLimit);
         $result = [];
 
         foreach ($chunks as $tasks) {
-            $result = array_merge(
-                $result,
-                static::add($tasks)
-                    ->setTimeout($this->timeout)
-                    ->setCommonBeforeExecutionCallback($this->commonBeforeExecutionCallback)->run()->waitOutput($sleepTimeout)
-            );
+            $tasksOutput = static::add($tasks)
+                ->setTimeout($this->timeout)
+                ->setCommonBeforeExecutionCallback($this->commonBeforeExecutionCallback)
+                ->run()
+                ->waitOutput($sleepTimeout, $waitTimeout);
+
+            foreach ($tasksOutput as $value) {
+                $result[] = $value;
+            }
         }
 
         return $result;
@@ -68,9 +71,9 @@ class ParallelTasks
         return $this->workers;
     }
 
-    public function waitOutput($sleepTimeout = 1000): array
+    public function waitOutput($sleepTimeout = 100, int $waitTimeout = 0): array
     {
-        return array_map(fn (SingleTaskWorker $worker) => $worker->waitOutput($sleepTimeout), $this->workers);
+        return array_map(fn (SingleTaskWorker $worker) => $worker->waitOutput($sleepTimeout, $waitTimeout), $this->workers);
     }
 
     public function setCommonBeforeExecutionCallback(?Closure $commonBeforeExecutionCallback): ParallelTasks

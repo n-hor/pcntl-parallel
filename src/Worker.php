@@ -9,6 +9,7 @@ namespace NHor\PcntlParallel;
 
 use NHor\PcntlParallel\Contracts\Packer;
 use NHor\PcntlParallel\Contracts\Serializer;
+use NHor\PcntlParallel\Exceptions\TimeoutException;
 use NHor\PcntlParallel\Exceptions\WorkerException;
 use NHor\PcntlParallel\Exceptions\WorkerTimeoutException;
 use NHor\PcntlParallel\Messages\WorkerExceptionMessage;
@@ -63,20 +64,34 @@ abstract class Worker
     {
         $this->checkWorkerStatus();
 
-        return $this->channel->read()->current();
+        $output = $this->channel->reader->current();
+
+        if ($this->channel->reader->valid()) {
+            $this->channel->reader->next();
+        }
+
+        return $output;
     }
 
-    public function waitOutput(int $sleepTimeout = 1000)
+    public function waitOutput(int $sleepTimeout = 100, int $waitTimeout = 0)
     {
-        do {
+        $startWaitTime = microtime(true);
+        $waitTimeout /= 1_000_000;
+        while (true) {
             $output = $this->getOutput();
 
-            $noContent = $output === Channel::NO_CONTENT;
+            if ($output !== Channel::NO_CONTENT) {
+                break;
+            }
 
-            if ($sleepTimeout > 0 && $noContent) {
+            if ($waitTimeout > 0 && ((microtime(true) - $startWaitTime) > $waitTimeout)) {
+                throw new TimeoutException($waitTimeout);
+            }
+
+            if ($sleepTimeout > 0) {
                 usleep($sleepTimeout);
             }
-        } while ($noContent);
+        }
 
         return $output;
     }

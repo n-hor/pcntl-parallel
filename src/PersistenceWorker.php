@@ -17,9 +17,17 @@ class PersistenceWorker extends Worker
 
     protected Closure $onReceiveCallback;
 
+    protected ?Closure $beforeExecutionCallback = null;
+
     public function dispatch(mixed $content = null): static
     {
         $this->channel->send($content);
+        return $this;
+    }
+
+    public function setBeforeExecutionCallback(?Closure $beforeExecutionCallback): static
+    {
+        $this->beforeExecutionCallback = $beforeExecutionCallback;
         return $this;
     }
 
@@ -37,8 +45,16 @@ class PersistenceWorker extends Worker
 
     protected function process(): void
     {
+        if ($this->beforeExecutionCallback) {
+            try {
+                ($this->beforeExecutionCallback)();
+            } catch (Throwable $throwable) {
+                $this->channel->send(new WorkerExceptionMessage($throwable));
+            }
+        }
+
         while (true) {
-            $task = $this->channel->read()->current();
+            $task = $this->channel->reader->current();
 
             if ($task !== Channel::NO_CONTENT) {
                 try {
@@ -47,11 +63,11 @@ class PersistenceWorker extends Worker
                 } catch (Throwable $throwable) {
                     $this->channel->send(new WorkerExceptionMessage($throwable));
                 }
-                continue;
             }
             if ($this->sleepTimeout > 0) {
                 usleep($this->sleepTimeout);
             }
+            $this->channel->reader->next();
         }
     }
 }

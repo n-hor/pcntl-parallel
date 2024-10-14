@@ -16,12 +16,6 @@ class SingleTaskWorker extends Worker
 {
     protected Closure $closure;
 
-    public function setCallback(Closure $closure): static
-    {
-        $this->closure = $closure(...);
-        return $this;
-    }
-
     public function run(): static
     {
         if (! isset($this->closure)) {
@@ -29,6 +23,12 @@ class SingleTaskWorker extends Worker
         }
 
         return parent::run();
+    }
+
+    public function setCallback(Closure $closure): static
+    {
+        $this->closure = $closure(...);
+        return $this;
     }
 
     protected function process(): void
