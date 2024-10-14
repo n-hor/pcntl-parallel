@@ -4,6 +4,7 @@ $header = <<<'EOF'
 Author: Nikolay Horobets.
 
 @link https://github.com/n-hor
+@link https://sandbox.ws
 EOF;
 
 return (new PhpCsFixer\Config())

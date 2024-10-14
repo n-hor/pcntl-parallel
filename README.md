@@ -2,16 +2,16 @@
 
 This package for running code in parallel and creating a pool of processes to execute various tasks (like queue workers).
 
-## Installation
+Improve performance of your php app with this package!
 
-You can install the package via composer:
+## Installation
 
 ```bash
 composer require n-hor/pcntl-parallel
 ```
 
 ## Requirements
- - PHP 8.1
+ - PHP >= 8.1
  - ext-sockets
  - ext-pcntl https://www.php.net/manual/en/intro.pcntl.php
  - posix (optional)
