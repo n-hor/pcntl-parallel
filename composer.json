@@ -1,6 +1,6 @@
 {
   "name": "n-hor/pcntl-parallel",
-  "version": "0.1",
+  "version": "1.0",
   "description": "Execute PHP code in parallel with single or persistent task worker.",
   "keywords": [
     "fork",
@@ -37,5 +37,7 @@
     "allow-plugins": {
       "pestphp/pest-plugin": true
     }
-  }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
 }
