@@ -200,4 +200,56 @@ test('test results of workers pool')->expect(function () {
     $pool->wait();
     $result = $pool->pullWorkersOutput(); //[6,7,8,9]
     expect(30)->toEqual(array_sum($result));
+    $pool->destroy();
+});
+
+test('common execution callback')->expect(function () {
+
+    $parallelTasks = ParallelTasks::add([
+        function () {
+            global $value;
+            return 1 + $value;
+        },
+        function () {
+            global $value;
+            return 2 + $value;
+        },
+        function () {
+            global $value;
+            return 3 + $value;
+        },
+    ])
+        ->setCommonBeforeExecutionCallback(function () {
+            global $value;
+            $value = 1;
+        })
+        ->run();
+
+    $res = $parallelTasks->waitOutput();
+
+    expect(9)->toEqual(array_sum($res));
+});
+
+test('workers pool common execution callback')->expect(function () {
+    $pool = PersistenceWorkersPool::create(5)
+        ->setCommonBeforeExecutionCallback(function () {
+            global $value;
+            $value = 1;
+        })
+        ->run(function (mixed $job) {
+            global $value;
+            return $job + $value;
+        });
+
+    $tasks = [1,2,3,4,5,6,7,8,9];
+    foreach ($tasks as $task) {
+        $pool->dispatch($task, waitAvailableWorkerTimeout: 2_000_000);
+    }
+
+    $result = $pool->pullWorkersOutput();
+    expect(20)->toEqual(array_sum($result));
+    $pool->wait();
+    $result = $pool->pullWorkersOutput();
+    expect(34)->toEqual(array_sum($result));
+    $pool->destroy();
 });
