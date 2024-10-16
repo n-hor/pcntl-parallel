@@ -19,8 +19,6 @@ class Channel
 
     public Generator $reader;
 
-    protected string $buffer = '';
-
     public function __construct(
         protected Socket $socket,
         protected int $bufferSize,
@@ -34,7 +32,7 @@ class Channel
 
     public function __destruct()
     {
-        socket_close($this->socket);
+        $this->close();
     }
 
     public function read(): Generator
@@ -93,7 +91,7 @@ class Channel
         }
     }
 
-    protected function socketSelect($isRead): bool
+    protected function socketSelect(bool $isRead): bool
     {
         $write = ! $isRead ? [$this->socket] : null;
         $read = $isRead ? [$this->socket] : null;

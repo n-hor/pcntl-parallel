@@ -1,5 +1,6 @@
 {
   "name": "n-hor/pcntl-parallel",
+  "version": "1.0",
   "description": "Execute PHP code in parallel with single or persistent task worker.",
   "keywords": [
     "fork",

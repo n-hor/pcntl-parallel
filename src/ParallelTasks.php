@@ -93,7 +93,7 @@ class ParallelTasks
     {
         return isset($this->commonBeforeExecutionCallback) ? function () use ($task) {
             ($this->commonBeforeExecutionCallback)();
-            $task();
+            return $task();
         } : $task;
     }
 }
